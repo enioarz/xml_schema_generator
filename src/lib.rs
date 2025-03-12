@@ -8,7 +8,7 @@
 //!
 //! How to implement the lib
 //! ```
-//! use quick_xml::reader::Reader;
+//! use quick_xml::reader::NsReader;
 //! use xml_schema_generator::{into_struct, Options};
 //!
 //! let xml = "<xml>...</xml>";

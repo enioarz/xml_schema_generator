@@ -18,9 +18,9 @@ fn to_str<T: AsRef<[u8]>>(e: T) -> Result<String, ParserError> {
 
 fn render_label<R: BufRead>(qn: QName, reader: &mut NsReader<R>, attribute: bool) -> Result<String, ParserError> {
     match reader.resolve(qn,  attribute) {
-        (ResolveResult::Bound(ns), ln ) => to_str(ln),
-        (ResolveResult::Unknown(un), ln) => to_str(ln),
-        (ResolveResult::Unbound, ln) => to_str(ln)
+        (ResolveResult::Bound(ns), ln ) => to_str(qn),
+        (ResolveResult::Unknown(un), ln) => to_str(qn),
+        (ResolveResult::Unbound, ln) => to_str(qn)
 
     }
 }
