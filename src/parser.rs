@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::io::BufRead;
 
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::reader::Reader;
+use quick_xml::name::{QName, ResolveResult};
+use quick_xml::reader::NsReader;
 
 use crate::element::Element;
 use crate::necessity::Necessity;
@@ -13,6 +14,15 @@ use crate::necessity::Necessity;
 /// TODO: maybe we can do better than this ...
 fn to_str<T: AsRef<[u8]>>(e: T) -> Result<String, ParserError> {
     String::from_utf8(e.as_ref().to_vec()).map_err(ParserError::FromUtf8Error)
+}
+
+fn render_label<R: BufRead>(qn: QName, reader: &mut NsReader<R>, attribute: bool) -> Result<String, ParserError> {
+    match reader.resolve(qn,  attribute) {
+        (ResolveResult::Bound(ns), ln ) => to_str(ln),
+        (ResolveResult::Unknown(un), ln) => to_str(ln),
+        (ResolveResult::Unbound, ln) => to_str(ln)
+
+    }
 }
 
 #[derive(Debug)]
@@ -44,7 +54,7 @@ impl std::fmt::Display for ParserError {
 
 impl std::error::Error for ParserError {}
 
-pub fn into_struct<R>(reader: &mut Reader<R>) -> Result<Element<String>, ParserError>
+pub fn into_struct<R>(reader: &mut NsReader<R>) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
 {
@@ -67,7 +77,7 @@ where
 }
 
 pub fn extend_struct<R>(
-    reader: &mut Reader<R>,
+    reader: &mut NsReader<R>,
     root: Element<String>,
 ) -> Result<Element<String>, ParserError>
 where
@@ -95,7 +105,7 @@ where
 
 /// parse a given XML document into a tree of Element structs below the given root element
 fn build_struct<R>(
-    reader: &mut Reader<R>,
+    reader: &mut NsReader<R>,
     mut root: Element<String>,
 ) -> Result<Element<String>, ParserError>
 where
@@ -108,9 +118,9 @@ where
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
                 let (children_count, check_optional_tags) =
-                    count_children(root.get_child(&to_str(e.name())?));
+                    count_children(root.get_child(&render_label(e.name(), reader, false)?));
 
-                root = parse_tag::<R>(root, &e, &mut known_elements, Some(reader))?;
+                root = parse_tag::<R>(root, &e, &mut known_elements, reader, false)?;
 
                 if check_optional_tags {
                     root = tag_optional_children(root, e, children_count)?;
@@ -120,7 +130,7 @@ where
             Ok(Event::CData(e)) => root.text = Some(to_str(e.into_inner())?),
             Ok(Event::Empty(e)) => {
                 // we don't pass the reader to parse_tag here, as we do not want to iterate into an empty element
-                root = parse_tag::<R>(root, &e, &mut known_elements, None)?;
+                root = parse_tag::<R>(root, &e, &mut known_elements, reader, true)?;
                 root = tag_optional_children(root, e, HashMap::new())?;
             }
             Ok(Event::Eof | Event::End(_)) => return Ok(root),
@@ -198,19 +208,20 @@ fn parse_tag<R>(
     mut root: Element<String>,
     e: &BytesStart<'_>,
     known_elements: &mut Vec<String>,
-    reader: Option<&mut Reader<R>>,
+    reader: &mut NsReader<R>,
+    empty: bool
 ) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
 {
-    let name = to_str(e.name())?;
+    let name = render_label(e.name(),reader, false)?;
 
     let new_child = match root.remove_child(&name) {
         Some(Necessity::Mandatory(child) | Necessity::Optional(child)) => {
             let mut attributes = Vec::new();
             for attr in e.attributes() {
                 match attr {
-                    Ok(attr) => attributes.push(Necessity::Mandatory(to_str(attr.key)?)),
+                    Ok(attr) => attributes.push(Necessity::Mandatory(render_label(attr.key, reader,true)?)),
                     Err(e) => return Err(ParserError::AttrError(e)),
                 };
             }
@@ -223,7 +234,7 @@ where
 
             new_child.increment();
 
-            if let Some(reader) = reader {
+            if !empty  {
                 new_child = build_struct(reader, new_child)?;
             }
             new_child
@@ -234,7 +245,7 @@ where
 
             for attr in raw_attributes {
                 match attr {
-                    Ok(attr) => attributes.push(to_str(attr.key)?),
+                    Ok(attr) => attributes.push(render_label(attr.key, reader, true)?),
                     Err(e) => return Err(ParserError::AttrError(e)),
                 };
             }
@@ -245,7 +256,7 @@ where
                 child.set_multiple();
             }
 
-            if let Some(reader) = reader {
+            if !empty {
                 child = build_struct(reader, child)?;
             }
             child

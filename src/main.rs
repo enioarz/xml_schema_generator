@@ -6,7 +6,7 @@ mod args;
 use args::Args;
 use clap::Parser;
 use log::{error, info};
-use quick_xml::reader::Reader;
+use quick_xml::reader::NsReader;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -32,7 +32,7 @@ fn main() {
 fn run(config: Args) -> Result<(), Box<dyn std::error::Error>> {
     info!("read {}", config.input_path);
     let xml = fs::read_to_string(config.input_path)?;
-    let mut reader = Reader::from_str(&xml);
+    let mut reader = NsReader::from_str(&xml);
 
     let root = into_struct(&mut reader)?;
 

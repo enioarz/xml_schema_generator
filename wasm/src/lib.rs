@@ -1,12 +1,12 @@
 mod utils;
 
-use quick_xml::reader::Reader;
+use quick_xml::reader::NsReader;
 use wasm_bindgen::prelude::*;
 use xml_schema_generator::{into_struct, Options};
 
 #[wasm_bindgen]
 pub fn transform_xml(s: &str) -> String {
-    let mut reader = Reader::from_str(s);
+    let mut reader = NsReader::from_str(s);
 
     match into_struct(&mut reader) {
         Ok(root) => root.to_serde_struct(&Options::quick_xml_de()),
