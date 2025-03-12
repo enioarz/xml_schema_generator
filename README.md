@@ -24,7 +24,7 @@ How to implement the lib
     use xml_schema_generator::{into_struct, Options};
 
     let xml = "<a b=\"c\">d</a>";
-    let mut reader = Reader::from_str(xml);
+    let mut reader = NsReader::from_str(xml);
     
     if let Ok(root) = into_struct(&mut reader) {
         let struct_as_string = root.to_serde_struct(&Options::quick_xml_de());
