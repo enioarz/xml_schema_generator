@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::io::BufRead;
 
+use curie::PrefixMapping;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::{QName, ResolveResult};
 use quick_xml::reader::NsReader;
@@ -16,12 +17,26 @@ fn to_str<T: AsRef<[u8]>>(e: T) -> Result<String, ParserError> {
     String::from_utf8(e.as_ref().to_vec()).map_err(ParserError::FromUtf8Error)
 }
 
-fn render_label<R: BufRead>(qn: QName, reader: &mut NsReader<R>, attribute: bool) -> Result<String, ParserError> {
-    match reader.resolve(qn,  attribute) {
-        (ResolveResult::Bound(ns), ln ) => to_str(qn),
-        (ResolveResult::Unknown(un), ln) => to_str(qn),
-        (ResolveResult::Unbound, ln) => to_str(qn)
-
+fn render_label<R: BufRead>(
+    qn: QName,
+    reader: &mut NsReader<R>,
+    attribute: bool,
+    pm: Option<&PrefixMapping>,
+) -> Result<String, ParserError> {
+    match reader.resolve(qn, attribute) {
+        (ResolveResult::Bound(ns), ln) => match pm {
+            Some(ppm) => {
+                let mut resolution = to_str(ns.into_inner())?;
+                resolution.extend(to_str(ln));
+                match ppm.shrink_iri(&resolution) {
+                    Ok(new_iri) => Ok(new_iri.to_string()),
+                    Err(_) => to_str(qn),
+                }
+            }
+            None => to_str(qn),
+        },
+        (ResolveResult::Unknown(_), _) => to_str(qn),
+        (ResolveResult::Unbound, _) => to_str(qn),
     }
 }
 
@@ -54,12 +69,15 @@ impl std::fmt::Display for ParserError {
 
 impl std::error::Error for ParserError {}
 
-pub fn into_struct<R>(reader: &mut NsReader<R>) -> Result<Element<String>, ParserError>
+pub fn into_struct_with_mapping<R>(
+    reader: &mut NsReader<R>,
+    pm: Option<&PrefixMapping>,
+) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
 {
     let root = Element::new(String::from("root"), Vec::new());
-    let mut root = build_struct(reader, root)?;
+    let mut root = build_struct_with_mapping(reader, root, pm)?;
 
     let name = match root.children().first() {
         Some(element) => Ok(element.inner_t().name.clone()),
@@ -76,9 +94,17 @@ where
     }
 }
 
-pub fn extend_struct<R>(
+pub fn into_struct<R>(reader: &mut NsReader<R>) -> Result<Element<String>, ParserError>
+where
+    R: BufRead,
+{
+    into_struct_with_mapping(reader, None)
+}
+
+pub fn extend_struct_with_mapping<R>(
     reader: &mut NsReader<R>,
     root: Element<String>,
+    pm: Option<&PrefixMapping>,
 ) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
@@ -86,7 +112,7 @@ where
     let mut wrapper = Element::new(String::from("root"), Vec::new());
     wrapper.add_unique_child(root);
 
-    let mut root = build_struct(reader, wrapper)?;
+    let mut root = build_struct_with_mapping(reader, wrapper, pm)?;
 
     let name = match root.children().first() {
         Some(element) => Ok(element.inner_t().name.clone()),
@@ -104,9 +130,10 @@ where
 }
 
 /// parse a given XML document into a tree of Element structs below the given root element
-fn build_struct<R>(
+fn build_struct_with_mapping<R>(
     reader: &mut NsReader<R>,
     mut root: Element<String>,
+    pm: Option<&PrefixMapping>,
 ) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
@@ -118,9 +145,9 @@ where
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
                 let (children_count, check_optional_tags) =
-                    count_children(root.get_child(&render_label(e.name(), reader, false)?));
+                    count_children(root.get_child(&render_label(e.name(), reader, false, pm)?));
 
-                root = parse_tag::<R>(root, &e, &mut known_elements, reader, false)?;
+                root = parse_tag::<R>(root, &e, &mut known_elements, reader, false, pm)?;
 
                 if check_optional_tags {
                     root = tag_optional_children(root, e, children_count)?;
@@ -130,7 +157,7 @@ where
             Ok(Event::CData(e)) => root.text = Some(to_str(e.into_inner())?),
             Ok(Event::Empty(e)) => {
                 // we don't pass the reader to parse_tag here, as we do not want to iterate into an empty element
-                root = parse_tag::<R>(root, &e, &mut known_elements, reader, true)?;
+                root = parse_tag::<R>(root, &e, &mut known_elements, reader, true, pm)?;
                 root = tag_optional_children(root, e, HashMap::new())?;
             }
             Ok(Event::Eof | Event::End(_)) => return Ok(root),
@@ -209,19 +236,22 @@ fn parse_tag<R>(
     e: &BytesStart<'_>,
     known_elements: &mut Vec<String>,
     reader: &mut NsReader<R>,
-    empty: bool
+    empty: bool,
+    pm: Option<&PrefixMapping>,
 ) -> Result<Element<String>, ParserError>
 where
     R: BufRead,
 {
-    let name = render_label(e.name(),reader, false)?;
+    let name = render_label(e.name(), reader, false, pm)?;
 
     let new_child = match root.remove_child(&name) {
         Some(Necessity::Mandatory(child) | Necessity::Optional(child)) => {
             let mut attributes = Vec::new();
             for attr in e.attributes() {
                 match attr {
-                    Ok(attr) => attributes.push(Necessity::Mandatory(render_label(attr.key, reader,true)?)),
+                    Ok(attr) => attributes.push(Necessity::Mandatory(render_label(
+                        attr.key, reader, true, pm,
+                    )?)),
                     Err(e) => return Err(ParserError::AttrError(e)),
                 };
             }
@@ -234,8 +264,8 @@ where
 
             new_child.increment();
 
-            if !empty  {
-                new_child = build_struct(reader, new_child)?;
+            if !empty {
+                new_child = build_struct_with_mapping(reader, new_child, pm)?;
             }
             new_child
         }
@@ -245,7 +275,7 @@ where
 
             for attr in raw_attributes {
                 match attr {
-                    Ok(attr) => attributes.push(render_label(attr.key, reader, true)?),
+                    Ok(attr) => attributes.push(render_label(attr.key, reader, true, pm)?),
                     Err(e) => return Err(ParserError::AttrError(e)),
                 };
             }
@@ -257,7 +287,7 @@ where
             }
 
             if !empty {
-                child = build_struct(reader, child)?;
+                child = build_struct_with_mapping(reader, child, pm)?;
             }
             child
         }
@@ -272,11 +302,32 @@ where
     Ok(root)
 }
 
+fn build_struct<R>(
+    reader: &mut NsReader<R>,
+    root: Element<String>,
+) -> Result<Element<String>, ParserError>
+where
+    R: BufRead,
+{
+    build_struct_with_mapping(reader, root, None)
+}
+
+pub fn extend_struct<R>(
+    reader: &mut NsReader<R>,
+    root: Element<String>,
+) -> Result<Element<String>, ParserError>
+where
+    R: BufRead,
+{
+    extend_struct_with_mapping(reader, root, None)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{build_struct, extend_struct, Element, Necessity};
+    use super::{build_struct, extend_struct, into_struct_with_mapping, Element, Necessity};
     use crate::element::macro_rule::element;
     use crate::{into_struct, ParserError};
+    use curie::PrefixMapping;
     use pretty_assertions::assert_eq;
     use quick_xml::reader::NsReader;
 
@@ -1078,6 +1129,34 @@ mod tests {
         assert_eq!(
             &element!("h:b".to_string(), Some("y".to_string())),
             root.get_child(&"h:b".to_string()).unwrap().inner_t()
+        );
+    }
+
+    #[test]
+    fn into_struct_can_remap_element_namespaces() {
+        let xml = "<a xmlns:old=\"test\" old:c=\"x\"><old:b>y</old:b></a>";
+        let mut reader = NsReader::from_str(xml);
+        let mut pm = PrefixMapping::default();
+        pm.add_prefix("new", "test")
+            .expect("Could not map prefix to value");
+
+        let root = into_struct_with_mapping(&mut reader, Some(&pm))
+            .expect("Could not parse struct with mapping.");
+
+        assert_eq!(2, root.attributes().len());
+
+        assert_eq!(
+            &vec![
+                Necessity::Mandatory("xmlns:old".to_string()),
+                Necessity::Mandatory("new:c".to_string()),
+            ],
+            root.attributes()
+        );
+
+        assert_eq!(1, root.children().len());
+        assert_eq!(
+            &element!("new:b".to_string(), Some("y".to_string())),
+            root.get_child(&"new:b".to_string()).unwrap().inner_t()
         );
     }
 }
