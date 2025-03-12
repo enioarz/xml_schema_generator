@@ -1,4 +1,4 @@
-use quick_xml::reader::Reader;
+use quick_xml::reader::NsReader;
 use serde::{Deserialize, Serialize};
 use xml_schema_generator::{extend_struct, into_struct, Options};
 
@@ -51,13 +51,13 @@ pub struct Book {
 
 fn main() {
     // create struct from first XML
-    let root = match into_struct(&mut Reader::from_str(XML1)) {
+    let root = match into_struct(&mut NsReader::from_str(XML1)) {
         Ok(root) => root,
         Err(_) => panic!("expected to successfully parse into struct"),
     };
 
     // create struct with structure from second XML
-    let root = match extend_struct(&mut Reader::from_str(XML2), root) {
+    let root = match extend_struct(&mut NsReader::from_str(XML2), root) {
         Ok(root) => root,
         Err(_) => panic!("expected to successfully parse second xml into struct"),
     };

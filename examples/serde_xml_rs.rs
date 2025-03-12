@@ -1,4 +1,4 @@
-use quick_xml::reader::Reader;
+use quick_xml::reader::NsReader;
 use serde::{Deserialize, Serialize};
 use xml_schema_generator::{into_struct, Options};
 
@@ -46,7 +46,7 @@ pub struct Book {
 fn main() {
     // create struct from XML
 
-    let mut reader = Reader::from_str(XML);
+    let mut reader = NsReader::from_str(XML);
 
     if let Ok(root) = into_struct(&mut reader) {
         let struct_as_string = root.to_serde_struct(&Options::serde_xml_rs());

@@ -91,12 +91,12 @@ pub use parser::{extend_struct, into_struct, ParserError};
 mod tests {
     use crate::{into_struct, Options};
     use pretty_assertions::assert_eq;
-    use quick_xml::reader::Reader;
+    use quick_xml::reader::NsReader;
 
     #[test]
     fn parse_xml_and_return_struct_as_str() {
         let xml = "<a b=\"c\">d</a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -117,7 +117,7 @@ pub struct A {
     #[test]
     fn parse_xml_and_return_shallow_nested_duplicate_struct_as_str() {
         let xml = "<a><a></a></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -139,7 +139,7 @@ pub struct AA {
     #[test]
     fn parse_xml_and_return_deep_nested_duplicate_struct_as_str() {
         let xml = "<a><b><c><d><e><a></a></e></d></c></b></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -182,7 +182,7 @@ pub struct ABCDEA {
     #[test]
     fn parse_multiple_children_as_vec() {
         let xml = "<a><b>asd</b><b>fgh</b></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -201,7 +201,7 @@ pub struct A {
     #[test]
     fn parse_multiple_optional_children() {
         let xml = "<a><b><id>1</id></b><b><id>2</id><c>1</c><c>1</c></b></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -232,7 +232,7 @@ pub struct B {
         <ID>0</ID>
     </PINTYPE>
 </MVCI_MODULE_DESCRIPTION>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -266,7 +266,7 @@ pub struct Pintype {
         xsi:schemaLocation=\"http://www.opentravel.org/OTA/2003/05 OTA_Rate.xsd\">
             <Success />
 </OTA_Rate>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -308,7 +308,7 @@ pub struct Success {
             </TotalPriceDiff>
         </UpsellCandidate>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -392,7 +392,7 @@ pub struct TotalPriceDiffCurrency {
 		<Владелец>Булат</Владелец>
 	</Классификатор>
 </КоммерческаяИнформация>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -433,7 +433,7 @@ pub struct Классификатор {
     <sentence>This is the third sentence.</sentence>
     <comment>Another comment.</comment>
 </doc>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
@@ -465,7 +465,7 @@ pub struct Break {
     <a b=\"b\">a</a>
     <a c=\"c\" d=\"d\" b=\"b\" >a</a>
 </doc>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 

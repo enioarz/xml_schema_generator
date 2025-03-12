@@ -278,12 +278,12 @@ mod tests {
     use crate::element::macro_rule::element;
     use crate::{into_struct, ParserError};
     use pretty_assertions::assert_eq;
-    use quick_xml::reader::Reader;
+    use quick_xml::reader::NsReader;
 
     #[test]
     fn into_struct_can_parse_simple_xml() {
         let xml = "<a>b</a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -324,7 +324,7 @@ mod tests {
             <PictureURL>https://example.com/my.jpg</PictureURL>
         </Vehicle>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -424,7 +424,7 @@ mod tests {
             <b><c/></b>
             <b><c/><c/></b>
         </a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -462,7 +462,7 @@ mod tests {
             <b><c/><c/></b>
             <b><c/></b>
         </a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -501,7 +501,7 @@ mod tests {
             <b a='a' c='c'/>
         </a>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -544,7 +544,7 @@ mod tests {
             <Charge SecondOnly=\"EUR\" Mandatory=\"305.26\"/>\
         </Charges>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -632,7 +632,7 @@ mod tests {
         </Avail>
         ";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -716,7 +716,7 @@ mod tests {
             <Charge><SecondOnly/><Mandatory/></Charge>
         </Charges>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -785,7 +785,7 @@ mod tests {
             <Charge CurrencyCode=\"EUR\"/>
         </Charges>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -828,7 +828,7 @@ mod tests {
             </Charge>
         </Charges>";
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let mut root = Element::new(String::from("root"), Vec::new());
 
         root = build_struct(&mut reader, root).expect("expected to successfully parse into struct");
@@ -865,7 +865,7 @@ mod tests {
     #[test]
     fn into_struct_returns_an_quickxml_error() {
         let xml = "<a></b>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root = Element::new(String::from("root"), Vec::new());
 
         match build_struct(&mut reader, root) {
@@ -891,7 +891,7 @@ mod tests {
     #[test]
     fn into_struct_detects_multiple_children_issue3() {
         let xml = "<a><b>asd</b><b>fgh</b></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let mut root =
             into_struct(&mut reader).expect("expected to successfully parse into struct");
@@ -910,11 +910,11 @@ mod tests {
     #[test]
     fn extend_struct_returns_similar_simple_struct() {
         let xml = "<a>b</a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -927,12 +927,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_attributes() {
         let xml = "<a b=\"x\" c=\"x\">b</a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a b=\"x\" d=\"x\">b</a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -950,12 +950,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_children() {
         let xml = "<a><c>X</c><d>X</d></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a><d>X</d><e>X</e></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -973,12 +973,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_standalone_and_multiple() {
         let xml = "<a><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a><c>X</c><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -995,12 +995,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_standalone_children() {
         let xml = "<a><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -1017,12 +1017,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_multiple_and_standalone() {
         let xml = "<a><c>X</c><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -1039,12 +1039,12 @@ mod tests {
     #[test]
     fn extend_struct_combines_multiple_children() {
         let xml = "<a><c>X</c><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
         let xml = "<a><c>X</c><c>X</c></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
         let root =
             extend_struct(&mut reader, root).expect("expected to successfully extend struct");
 
@@ -1061,7 +1061,7 @@ mod tests {
     #[test]
     fn into_struct_can_parse_xml_with_namespace() {
         let xml = "<a xmlns:h=\"test\" h:c=\"x\"><h:b>y</h:b></a>";
-        let mut reader = Reader::from_str(xml);
+        let mut reader = NsReader::from_str(xml);
 
         let root = into_struct(&mut reader).expect("expected to successfully parse into struct");
 
